@@ -22,31 +22,59 @@ class EventBag {
   }
 }
 
+class SwarmBoardState {
+  constructor(width, height) {
+    this.factions = new Int8Array(width * height)
+  }
+}
+
 class SwarmBoard {
   constructor(width, height) {
     this.width = width
     this.height = height
-    this.state = new Int8Array(width * height)
-    this.prevState = null
+
+    this.palette = [
+      { r: 0, g: 0, b: 0 }, // black
+      { r: 1, g: 1, b: 1 }, // white
+      { r: 1, g: 0, b: 0 },
+      { r: 0, g: 0, b: 1 },
+      { r: 0, g: 1, b: 0 },
+      { r: 1, g: 1, b: 0 },
+      { r: 0, g: 1, b: 1 },
+    ]
+
+    this.world = new SwarmBoardState(this.width, this.height)
   }
-  
-  tick() {
-    this.prevState = this.state
-    this.state = new Int8Array(this.width * this.height)
+
+  tick(mouse) {
+    const getI = (x, y) => x + y * this.width
+    const at = (x, y, d) => d[getI(x, y)]
+
+    const ow = this.world
+    const w = this.world = new SwarmBoardState(this.width, this.height)
+
+    for (var y = 0; y < this.height; y += 1) {
+      for (var x = 0; x < this.width; x += 1) {
+        const i = getI(x, y)
+        w.factions[i] = ~~(Math.random() * this.palette.length)
+      }
+    }
   }
 
   /**
-   * @param {HTMLCanvasElement} canvas 
+   * @param {CanvasRenderingContext2D} ctx 
    */
-  draw(canvas) {
-    const ctx = canvas.getContext('2d')
-    const imgd = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  draw(ctx) {
+    const imgd = ctx.createImageData(this.width, this.height)
     const data = imgd.data
 
     for (var i = 0; i < data.length; i += 4) {
-      data[i] = Math.random() * 255
-      data[i + 1] = Math.random() * 255
-      data[i + 2] = Math.random() * 255
+      const faction = this.world.factions[i / 4]
+      const color = this.palette[faction]
+
+      data[i] = color.r * 255
+      data[i + 1] = color.g * 255
+      data[i + 2] = color.b * 255
       data[i + 3] = 255
     }
 
@@ -89,20 +117,23 @@ class SwarmGame {
   }
 
   tickTo(ms) {
-    const mspt = 1000 / this.tps // milliseconds per tick
+    if (ms - this.lastTick > 1000) this.lastTick = ms
     if (ms && !this.lastTick) this.lastTick = ms
+
+    const mspt = 1000 / this.tps // milliseconds per tick
     while (ms > this.lastTick + mspt) {
       this.lastTick += mspt
       this.needsRedraw = true
-      this.board.tick()
+
+      this.board.tick(this.mouse)
     }
   }
 
   draw() {
     if (!this.needsRedraw) return
     this.needsRedraw = false
-    this.board.draw(this.canvas)
+    const ctx = this.canvas.getContext('2d')
 
-    // const ctx = this.canvas.getContext("2d")
+    this.board.draw(ctx)
   }
 }
