@@ -14,7 +14,7 @@ function perfEnd(name) {
 
 function updatePerf() {
   const names = ['cell.tick', 'cell.tick.lookup', 'cell.tick.calc']
-  
+
   let txt = names.map(name => {
     const entries = perfResults[name]
 
@@ -28,7 +28,7 @@ function updatePerf() {
       const dt = entries[i] * 1000
       if (min > dt) min = dt
       if (max < dt) max = dt
-        avg += dt
+      avg += dt
     }
     avg /= entries.length
 
@@ -57,8 +57,8 @@ class SwarmBoard {
     this.palette = [
       { r: 1, g: 0, b: 1 }, // error: fuchsia
       { r: 0, g: 0, b: 0 }, // empty: black
-      { r: 1, g: 0, b: 0 }, // player: red
-      { r: 1, g: 1, b: 1 }, // white
+      { r: 1, g: 1, b: 1 }, // player: white
+      { r: 1, g: 0, b: 0 },
       { r: 0, g: 0, b: 1 },
       { r: 0, g: 1, b: 0 },
       { r: 1, g: 1, b: 0 },
@@ -125,10 +125,6 @@ class SwarmBoard {
    * @param {{x: number, y: number}} mouse
    */
   nextCellState(ow, x, y, mouse) {
-    // const mdx = mouse.x - x
-    // const mdy = mouse.y - y
-    // const md = Math.sqrt(mdx * mdx + mdy * mdy)
-
     const at = this.at.bind(this)
 
     perfStart('cell.tick.lookup')
@@ -163,12 +159,17 @@ class SwarmBoard {
     }
     perfEnd('cell.tick.calc')
 
+    const mdx = mouse.x - x
+    const mdy = mouse.y - y
+    const md = Math.sqrt(mdx * mdx + mdy * mdy)
+    const closeness = Math.pow(64 / md, .2)
+
     if (cellFac === 1) { // empty
-      const convertProb = numSameNeighbors / numNeighbors
+      const convertProb = numSameNeighbors / numNeighbors * closeness
       const convert = Math.random() < convertProb
       return convert ? 2 : 1 // XXX depends on player
     } else { // player cell
-      const deathProb = 1 - numSameNeighbors / numNeighbors
+      const deathProb = 1 - numSameNeighbors / numNeighbors * closeness
       const die = Math.random() < deathProb
       return die ? 1 : cellFac
     }
@@ -201,7 +202,7 @@ class SwarmGame {
    */
   constructor(canvas) {
     this.canvas = canvas
-    this.tps = 2
+    this.tps = 10
     this.mouse = {
       x: canvas.width / 2,
       y: canvas.height / 2,
