@@ -176,18 +176,21 @@ class SwarmBoard {
     perfEnd('cell.tick.lookup')
 
     perfStart('cell.tick.calc')
-    const numDirNb = dirNb.reduce((acc, val) => acc + ~~(val !== 0), 0)
-    const numDiagNb = diagNb.reduce((acc, val) => acc + ~~(val !== 0), 0)
+    let totalNbVal = 0
+    let totalNonFacNbVal = 0
+    let totalPlayerFacNbVal = 0
 
-    const numNonFacDirNb = dirNb.reduce((acc, val) => acc + ~~(val !== 2), 0)
-    const numNonFacDiagNb = diagNb.reduce((acc, val) => acc + ~~(val !== 2), 0)
+    for (let i = 0; i < 4; i++) {
+      const nf = dirNb[i]
+      totalNbVal += ~~(nf !== 0)
+      totalNonFacNbVal += ~~(nf !== 2)
+      totalPlayerFacNbVal += ~~(nf === 2)
 
-    const numPlayerFacDirNb = dirNb.reduce((acc, val) => acc + ~~(val === 2), 0)
-    const numPlayerFacDiagNb = diagNb.reduce((acc, val) => acc + ~~(val === 2), 0)
-
-    const totalNbVal = numDirNb + numDiagNb / 2
-    const totalNonFacNbVal = numNonFacDirNb + numNonFacDiagNb / 2
-    const totalPlayerFacNbVal = numPlayerFacDirNb + numPlayerFacDiagNb / 2
+      const df = diagNb[i]
+      totalNbVal += ~~(df !== 0) / 2
+      totalNonFacNbVal += ~~(df !== 2) / 2
+      totalPlayerFacNbVal += ~~(df === 2) / 2
+    }
     perfEnd('cell.tick.calc')
 
     if (cellFac === 1) { // empty
