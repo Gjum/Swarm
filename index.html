@@ -23,14 +23,33 @@
             justify-content: center;
         }
 
-        #canvas {
+        .container {
             width: auto;
+        }
+
+        #perfOut td {
+            text-align: right;
+        }
+        #perfOut td:first-child {
+            text-align: left;
         }
     </style>
 </head>
 
 <body>
-    <canvas id="canvas"></canvas>
+    <div class="container">
+        <canvas id="canvas"></canvas>
+        <br />
+        TPS:
+        <button onclick="console.log('tps:', game.tps = 2)">2</button>
+        <button onclick="console.log('tps:', game.tps = 5)">5</button>
+        <button onclick="console.log('tps:', game.tps = 10)">10</button>
+        <button onclick="console.log('tps:', game.tps = 15)">15</button>
+        <br />
+        Perf: (microseconds)
+        <table id="perfOut"></table>
+    </div>
+
     <script>
         const game = new SwarmGame(document.getElementById("canvas"))
         game.run()

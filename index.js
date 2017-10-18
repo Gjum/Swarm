@@ -22,9 +22,57 @@ class EventBag {
   }
 }
 
+let perfResults = {}
+let perfStarts = {}
+
+function perfStart(name) {
+  perfStarts[name] = performance.now()
+}
+
+function perfEnd(name) {
+  const perfEnd = performance.now()
+  if (!perfResults[name]) perfResults[name] = []
+  perfResults[name].push(perfEnd - perfStarts[name])
+  delete perfStarts[name]
+}
+
+function updatePerf() {
+  const names = ['cell.tick', 'cell.tick.lookup', 'cell.tick.calc']
+  
+  let txt = names.map(name => {
+    const entries = perfResults[name]
+
+    if (!entries || entries.length <= 0)
+      return name + ': no data'
+
+    let min = Infinity
+    let max = 0
+    let avg = 0
+    for (var i = 0; i < entries.length; i++) {
+      const dt = entries[i] * 1000
+      if (min > dt) min = dt
+      if (max < dt) max = dt
+        avg += dt
+    }
+    avg /= entries.length
+
+    return `<td>${name}</td><td>${min.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td>${max.toFixed(2)}</td>`
+  }).join('</tr><tr>')
+
+  txt = `<tr>${txt}</tr>`
+  txt = '<tr><th>name</th><th>min</th><th>avg</th><th>max</th></tr>' + txt
+
+  document.getElementById('perfOut').innerHTML = txt
+
+  perfResults = {}
+}
+
 class SwarmBoardState {
   constructor(width, height) {
     this.factions = new Int8Array(width * height)
+    this.pressures = new Int8Array(width * height)
+    this.xvels = new Int8Array(width * height)
+    this.yvels = new Int8Array(width * height)
   }
 }
 
@@ -34,9 +82,10 @@ class SwarmBoard {
     this.height = height
 
     this.palette = [
-      { r: 0, g: 0, b: 0 }, // black
+      { r: 1, g: 0, b: 1 }, // error: fuchsia
+      { r: 0, g: 0, b: 0 }, // empty: black
+      { r: 1, g: 0, b: 0 }, // player: red
       { r: 1, g: 1, b: 1 }, // white
-      { r: 1, g: 0, b: 0 },
       { r: 0, g: 0, b: 1 },
       { r: 0, g: 1, b: 0 },
       { r: 1, g: 1, b: 0 },
@@ -44,25 +93,116 @@ class SwarmBoard {
     ]
 
     this.world = new SwarmBoardState(this.width, this.height)
+
+    // init board with circle of player cells
+    for (var y = 0; y < this.height; y += 1) {
+      for (var x = 0; x < this.width; x += 1) {
+        const i = this.getI(x, y)
+        const dx = x - this.width / 2
+        const dy = y - this.height / 2
+        if (dx * dx + dy * dy < 400) {
+          this.world.factions[i] = 2 // player
+        } else {
+          this.world.factions[i] = 1 // empty
+        }
+      }
+    }
   }
 
-  tick(mouse) {
-    const getI = (x, y) => x + y * this.width
-    const at = (x, y, d) => d[getI(x, y)]
+  getI(x, y) {
+    return x + y * this.width
+  }
 
+  /**
+   * @param {Int8Array} d
+   * @param {number} x
+   * @param {number} y
+   */
+  at(d, x, y) {
+    if (x < 0 || x >= this.width || x < 0 || x >= this.width)
+      return 0
+    return d[x + y * this.width]
+  }
+
+  /**
+   * cells close to the player, next to its cells, can become player cells
+   * cells far from the player can become empty, depending on the number of neighboring player cells
+   *
+   * @param {{x: number, y: number}} mouse
+   */
+  tick(mouse) {
     const ow = this.world
     const w = this.world = new SwarmBoardState(this.width, this.height)
 
+    const nextCellState = this.nextCellState.bind(this)
     for (var y = 0; y < this.height; y += 1) {
       for (var x = 0; x < this.width; x += 1) {
-        const i = getI(x, y)
-        w.factions[i] = ~~(Math.random() * this.palette.length)
+        perfStart('cell.tick')
+        const i = this.getI(x, y)
+        w.factions[i] = nextCellState(ow, x, y, mouse)
+        perfEnd('cell.tick')
       }
     }
   }
 
   /**
-   * @param {CanvasRenderingContext2D} ctx 
+   * @param {SwarmBoardState} ow
+   * @param {number} x
+   * @param {number} y
+   * @param {{x: number, y: number}} mouse
+   */
+  nextCellState(ow, x, y, mouse) {
+    // const mdx = mouse.x - x
+    // const mdy = mouse.y - y
+    // const md = Math.sqrt(mdx * mdx + mdy * mdy)
+
+    const at = this.at.bind(this)
+
+    perfStart('cell.tick.lookup')
+    const cellFac = at(ow.factions, x, y)
+    const dirNb = [
+      at(ow.factions, x, y - 1), // N
+      at(ow.factions, x - 1, y), // W
+      at(ow.factions, x, y + 1), // S
+      at(ow.factions, x + 1, y), // E
+    ]
+
+    const diagNb = [
+      at(ow.factions, x - 1, y - 1), // NW
+      at(ow.factions, x - 1, y + 1), // SW
+      at(ow.factions, x + 1, y + 1), // SE
+      at(ow.factions, x + 1, y - 1), // NE
+    ]
+    perfEnd('cell.tick.lookup')
+
+    perfStart('cell.tick.calc')
+    const numDirNb = dirNb.reduce((acc, val) => acc + ~~(val !== 0), 0)
+    const numDiagNb = diagNb.reduce((acc, val) => acc + ~~(val !== 0), 0)
+
+    const numNonFacDirNb = dirNb.reduce((acc, val) => acc + ~~(val !== 2), 0)
+    const numNonFacDiagNb = diagNb.reduce((acc, val) => acc + ~~(val !== 2), 0)
+
+    const numPlayerFacDirNb = dirNb.reduce((acc, val) => acc + ~~(val === 2), 0)
+    const numPlayerFacDiagNb = diagNb.reduce((acc, val) => acc + ~~(val === 2), 0)
+
+    const totalNbVal = numDirNb + numDiagNb / 2
+    const totalNonFacNbVal = numNonFacDirNb + numNonFacDiagNb / 2
+    const totalPlayerFacNbVal = numPlayerFacDirNb + numPlayerFacDiagNb / 2
+    perfEnd('cell.tick.calc')
+
+    if (cellFac === 1) { // empty
+      const convertProb = totalPlayerFacNbVal / totalNbVal
+      const convert = Math.random() < convertProb
+      return convert ? 2 : 1 // XXX depends on player
+    } else { // player cell
+      const deathProb = totalNonFacNbVal / totalNbVal
+      const die = Math.random() < deathProb
+      return die ? 1 : cellFac
+    }
+  }
+
+  /**
+   * @param {CanvasRenderingContext2D} ctx
    */
   draw(ctx) {
     const imgd = ctx.createImageData(this.width, this.height)
@@ -88,15 +228,17 @@ class SwarmGame {
    */
   constructor(canvas) {
     this.canvas = canvas
-    this.tps = 20
+    this.tps = 2
     this.mouse = {
       x: canvas.width / 2,
       y: canvas.height / 2,
     }
 
     canvas.addEventListener("mousemove", e => {
-      this.mouse = { x: e.x, y: e.y }
-      this.needsRedraw = true
+      this.mouse = { x: e.offsetX, y: e.offsetY }
+    })
+    canvas.addEventListener("click", e => {
+      this.reset()
     })
 
     this.reset()
@@ -117,8 +259,8 @@ class SwarmGame {
   }
 
   tickTo(ms) {
-    if (ms - this.lastTick > 1000) this.lastTick = ms
     if (ms && !this.lastTick) this.lastTick = ms
+    if (ms - this.lastTick > 1000) this.lastTick = ms
 
     const mspt = 1000 / this.tps // milliseconds per tick
     while (ms > this.lastTick + mspt) {
@@ -127,6 +269,7 @@ class SwarmGame {
 
       this.board.tick(this.mouse)
     }
+    if (this.needsRedraw) updatePerf()
   }
 
   draw() {
