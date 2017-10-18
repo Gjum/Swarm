@@ -32,13 +32,10 @@ function updatePerf() {
     }
     avg /= entries.length
 
-    return `<td>${name}</td><td>${min.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td>${max.toFixed(2)}</td>`
-  }).join('</tr><tr>')
+    return `${avg.toFixed(2)} ${name}`
+  }).join('\n')
 
-  txt = `<tr>${txt}</tr>`
-  txt = '<tr><th>name</th><th>min</th><th>avg</th><th>max</th></tr>' + txt
-
-  document.getElementById('perfOut').innerHTML = txt
+  document.getElementById('perfOut').innerText = txt
 
   perfResults = {}
 }
