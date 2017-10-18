@@ -136,14 +136,14 @@ class SwarmBoard {
 
     perfStart('cell.tick.lookup')
     const cellFac = at(ow.factions, x, y)
-    const dirNb = [
+    const directNeighbors = [
       at(ow.factions, x, y - 1), // N
       at(ow.factions, x - 1, y), // W
       at(ow.factions, x, y + 1), // S
       at(ow.factions, x + 1, y), // E
     ]
 
-    const diagNb = [
+    const diagonalNeighbors = [
       at(ow.factions, x - 1, y - 1), // NW
       at(ow.factions, x - 1, y + 1), // SW
       at(ow.factions, x + 1, y + 1), // SE
@@ -152,29 +152,26 @@ class SwarmBoard {
     perfEnd('cell.tick.lookup')
 
     perfStart('cell.tick.calc')
-    let totalNbVal = 0
-    let totalNonFacNbVal = 0
-    let totalPlayerFacNbVal = 0
+    let numNeighbors = 0
+    let numSameNeighbors = 0
 
     for (let i = 0; i < 4; i++) {
-      const nf = dirNb[i]
-      totalNbVal += ~~(nf !== 0)
-      totalNonFacNbVal += ~~(nf !== 2)
-      totalPlayerFacNbVal += ~~(nf === 2)
+      const nf = directNeighbors[i]
+      numNeighbors += ~~(nf !== 0)
+      numSameNeighbors += ~~(nf === 2)
 
-      const df = diagNb[i]
-      totalNbVal += ~~(df !== 0) / 2
-      totalNonFacNbVal += ~~(df !== 2) / 2
-      totalPlayerFacNbVal += ~~(df === 2) / 2
+      const df = diagonalNeighbors[i]
+      numNeighbors += ~~(df !== 0) / 2
+      numSameNeighbors += ~~(df === 2) / 2
     }
     perfEnd('cell.tick.calc')
 
     if (cellFac === 1) { // empty
-      const convertProb = totalPlayerFacNbVal / totalNbVal
+      const convertProb = numSameNeighbors / numNeighbors
       const convert = Math.random() < convertProb
       return convert ? 2 : 1 // XXX depends on player
     } else { // player cell
-      const deathProb = totalNonFacNbVal / totalNbVal
+      const deathProb = 1 - numSameNeighbors / numNeighbors
       const die = Math.random() < deathProb
       return die ? 1 : cellFac
     }
