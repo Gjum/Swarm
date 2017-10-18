@@ -95,7 +95,7 @@ class SwarmBoard {
    * @param {number} y
    */
   at(d, x, y) {
-    if (x < 0 || x >= this.width || x < 0 || x >= this.width)
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height)
       return 0
     return d[x + y * this.width]
   }
