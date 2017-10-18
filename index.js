@@ -1,27 +1,3 @@
-class EventBag {
-  constructor() {
-    this.bag = {}
-  }
-
-  listenOn(node, event, handler) {
-    this.bag[node] = this.bag[node] || []
-    this.bag[node].push({ node, event, handler })
-    node.addEventListener(event, handler)
-  }
-
-  unlistenNode(node) {
-    this.bag[node].forEach(({ event, handler }) => {
-      node.removeEventListener(event, handler)
-    })
-  }
-
-  unlistenAll() {
-    Object.keys(this.bag).forEach(node => {
-      this.unlistenNode(node)
-    })
-  }
-}
-
 let perfResults = {}
 let perfStarts = {}
 
